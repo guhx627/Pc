@@ -18,10 +18,22 @@ jobs:
 
       - name: Log In To AnyDesk
         run: |
+          $anydeskPath = "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
+          if (-not (Test-Path $anydeskPath)) {
+            Write-Host "AnyDesk não encontrado. Baixando e instalando..."
+            $installer = "$env:TEMP\AnyDesk.exe"
+            Invoke-WebRequest -Uri "https://download.anydesk.com/AnyDesk.exe" -OutFile $installer
+            Start-Process -FilePath $installer -ArgumentList "--install", "$env:ProgramFiles(x86)\AnyDesk", "--silent", "--create-desktop-icon" -Wait
+          }
+          
           if (Test-Path "start.bat") {
             cmd /c start.bat
           } else {
-            Write-Host "Arquivo start.bat não encontrado. Verifique a configuração."
+            if (Test-Path $anydeskPath) {
+              Start-Process $anydeskPath
+            } else {
+              Write-Host "Arquivo start.bat e AnyDesk não encontrados. Verifique a configuração."
+            }
           }
 
       - name: Monitor and Restart AnyDesk if Needed
@@ -30,7 +42,12 @@ jobs:
             $process = Get-Process -Name "AnyDesk" -ErrorAction SilentlyContinue
             if (-not $process) {
               Write-Host "AnyDesk não está rodando, reiniciando..."
-              cmd /c start.bat
+              $anydeskPath = "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe"
+              if (Test-Path "start.bat") {
+                cmd /c start.bat
+              } elseif (Test-Path $anydeskPath) {
+                Start-Process $anydeskPath
+              }
             }
             Start-Sleep -Seconds 300
           }
@@ -48,5 +65,7 @@ jobs:
           if (Test-Path "Downloads.bat") {
             Remove-Item "Downloads.bat" -Force
           }
+          if (Test-Path "$env:TEMP\AnyDesk.exe") {
+            Remove-Item "$env:TEMP\AnyDesk.exe" -Force
+          }
           Write-Host "Limpeza completa."
-
